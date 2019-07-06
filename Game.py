@@ -3,26 +3,44 @@ import pygame
 import time
 from enum import Enum
 
-class b_type(Enum):
-	ground = 0
-	wall = 1
+level   = 1
+health  = 1000
+attack  = 10
+defence = 10
+agility = 1
+
+def produce_number(screen, number,x ,y):
+	c = []
+	for i,j in enumerate(number):
+		c.append(object(screen, "resources/字/%s.png" % j, x + 0.5 * i, y - 0.025, o_type = o_type.scene, multiple = 0.22))
+	return c
+
+class o_type(Enum):
+	scene 	= -1
+	ground 	= 0
+	wall 	= 1
 	monster = 2
 
 class object():
-	def __init__(self, screen, path, x , y, type = b_type.ground):
+	def __init__(self, screen, path, x , y, o_type = o_type.ground, multiple = 1.5):
 		self.screen = screen
 
-		self.image = pygame.transform.scale(pygame.image.load(path), (48, 48))
+		self.image = pygame.image.load(path)
+		self.rect = self.image.get_rect()
+		self.image = pygame.transform.scale(self.image, (int(self.rect.width * multiple), int(self.rect.height * multiple)))
 		self.rect = self.image.get_rect()
 
 		self.visible = True
-		self.type = type
+		self.type = o_type
 
 		self.location = [x,y]
 
+	def trigger(self):
+		pass
+
 	def blitme(self):
 
-		self.rect.centerx = self.location[0] * 48 + 336 - self.rect.width/2
+		self.rect.centerx = self.location[0] * 48 + 336 - self.rect.width / 2
 		self.rect.bottom = self.location[1] * 48 + 96 - self.rect.height
 
 		self.screen.blit(self.image, self.rect)
@@ -39,7 +57,7 @@ class player(object):
 			self.images[2].append(pygame.transform.scale(pygame.image.load('resources/勇者/down %s.png' % i), (48, 48)))
 			self.images[3].append(pygame.transform.scale(pygame.image.load('resources/勇者/up %s.png' % i), (48, 48)))
 		self.rect = self.images[0][0].get_rect()
-		self.vector = [0,0,0]
+		self.vector = [0,0,2]
 		#put spaceship on the bottom of window
 
 		self.location = [1,1]
@@ -60,6 +78,7 @@ class player(object):
 				self.counter = 0
 		for i in walls:
 			if i.location == [self.location[0] + self.vector[0], self.location[1] + self.vector[1]]:
+				i.trigger()
 				return
 
 		self.location[0] += self.vector[0] 
@@ -109,27 +128,42 @@ def run_game():
 	items 		= []
 
 	for i in range(-6,0):
-		scenes.append(object(screen, "resources/地形/wall.png", i,  0, type = b_type.wall))
-		scenes.append(object(screen, "resources/地形/wall.png", i, 13, type = b_type.wall))
+		scenes.append(object(screen, "resources/地形/wall 3.png", i,  0, o_type = o_type.scene))
+		scenes.append(object(screen, "resources/地形/wall 3.png", i, 13, o_type = o_type.scene))
+		scenes.append(object(screen, "resources/地形/wall 3.png", i, 8, o_type = o_type.scene))
 
 	for i in range(14):
-		walls.append(object(screen, "resources/地形/wall.png", i,  0, type = b_type.wall))
-		walls.append(object(screen, "resources/地形/wall.png", i, 13, type = b_type.wall))
-		walls.append(object(screen, "resources/地形/wall.png", 0,  i, type = b_type.wall))
-		walls.append(object(screen, "resources/地形/wall.png", 13, i, type = b_type.wall))
-		scenes.append(object(screen, "resources/地形/wall.png", -6, i, type = b_type.wall))
+		walls.append(object(screen, "resources/地形/wall 3.png", i,  0, o_type = o_type.wall))
+		walls.append(object(screen, "resources/地形/wall 3.png", i, 13, o_type = o_type.wall))
+		walls.append(object(screen, "resources/地形/wall 3.png", 0,  i, o_type = o_type.wall))
+		walls.append(object(screen, "resources/地形/wall 3.png", 13, i, o_type = o_type.wall))
+		scenes.append(object(screen, "resources/地形/wall 3.png", -6, i, o_type = o_type.scene))
 
-	for i in range(1,13):
-		for j in range(1,13):
-			grounds.append(object(screen, "resources/地形/ground.png", i, j, type = b_type.ground))
+	scenes.append(object(screen, "resources/勇者/down 0.png", -4.5, 2, o_type = o_type.scene))
+	scenes.append(object(screen, "resources/字/等级.png", -2.5, 1.25, o_type = o_type.scene,multiple = 1.2))
+
+	scenes.append(object(screen, "resources/字/体力.png", -3.5, 3, o_type = o_type.scene))
+	scenes.append(object(screen, "resources/字/攻击.png", -3.5, 4, o_type = o_type.scene))
+	scenes.append(object(screen, "resources/字/防御.png", -3.5, 5, o_type = o_type.scene))
+	scenes.append(object(screen, "resources/字/敏捷.png", -3.5, 6, o_type = o_type.scene))
+
+
+	for i in range(-6,13):
+		for j in range(0,13):
+			grounds.append(object(screen, "resources/地形/ground.png", i, j, o_type = o_type.ground))
 
 	warrior = player(screen)
 	pygame.display.set_caption("Mota")
 
 	while True:
 		check_events(warrior, walls, monsters, items)
-		update_screen(screen, scenes + walls + grounds + items + monsters + [warrior])
+		information = (produce_number(screen, str(level), -2.1, 1.5) + 
+			   produce_number(screen, str(health), -3, 3) + 
+			   produce_number(screen, str(attack), -3, 4) + 
+			   produce_number(screen, str(defence), -3, 5) + 
+			   produce_number(screen, str(agility), -3, 6))
 
+		update_screen(screen, grounds + information + scenes + walls + items + monsters + [warrior])
 		time.sleep(0.10)
 
 run_game()
