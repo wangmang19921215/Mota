@@ -2,13 +2,15 @@ import sys
 import pygame
 import time
 import json
+
 from enum import Enum
 
 icons = {
 	"npc_0" : "resources/NPC/仙女 0.png",
 	"npc_1" : "resources/NPC/老人 0.png",
 	"npc_2" : "resources/NPC/商人 0.png",
-	"npc_3" : "resources/NPC/盜賊 0.png"
+	"npc_3" : "resources/NPC/盜賊 0.png",
+	"player": "resources/勇者/down 0.png"
 }
 
 class o_type(Enum):
@@ -62,8 +64,12 @@ class conversation():
 		self.in_conversation = False
 		self.screen = screen
 		self.objects = []
-
+		self.queue = []
 	def print_word(self, name, text, path = ""):
+		if self.in_conversation:
+			self.queue.append((name, text, path))
+			return
+
 		self.in_conversation = True
 		self.objects.append(object(self.screen, "resources/字/msg_box.png", 13, 15, o_type = o_type.scene, multiple = 1))
 
@@ -81,6 +87,11 @@ class conversation():
 	def end_conversation(self):
 		self.in_conversation = False
 
+		if self.queue != []:
+			arg = self.queue[0]
+			del self.queue[0]
+			self.print_word(arg[0], arg[1], arg[2])
+
 def cost(item, amount):
 	if parameter[item] >= amount:
 		parameter[item] -= amount
@@ -93,6 +104,7 @@ class object():
 
 		if path != "":
 			self.visible = True
+			self.valid   = True
 			self.dynamic = dynamic
 			if dynamic:
 				self.counter = 0
@@ -150,6 +162,7 @@ class npc(object):
 
 		self.name = arg["name"]
 		if self.npc_script != None:
+			self.npc_script.status = self
 			self.npc_script.__init__(self.npc_script, arg)
 
 	def trigger(self):
@@ -272,7 +285,7 @@ class player(object):
 			if self.counter == 4:
 				self.counter = 0
 		for i in objs:
-			if i.location == [self.location[0] + self.vector[0], self.location[1] + self.vector[1]]:
+			if i.valid and i.location == [self.location[0] + self.vector[0], self.location[1] + self.vector[1]]:
 				if not i.trigger():
 					return
 				
@@ -297,7 +310,7 @@ def check_events(player, objs, conversation_control):
 					player.vector = [1, 0, 0]
 				elif event.key == pygame.K_LEFT:
 					player.vector = [-1,0, 1]
-				elif event.key == pygame.K_DOWN:
+				if event.key == pygame.K_DOWN:
 					player.vector = [0, 1, 2]
 				elif event.key == pygame.K_UP:
 					player.vector = [0,-1, 3]
@@ -306,7 +319,7 @@ def check_events(player, objs, conversation_control):
 					player.vector = [0, player.vector[1], player.vector[2]]
 				elif event.key == pygame.K_LEFT:
 					player.vector = [0, player.vector[1], player.vector[2]]
-				elif event.key == pygame.K_DOWN:
+				if event.key == pygame.K_DOWN:
 					player.vector = [player.vector[0], 0, player.vector[2]]
 				elif event.key == pygame.K_UP:
 					player.vector = [player.vector[0], 0, player.vector[2]]
