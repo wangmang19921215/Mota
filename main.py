@@ -38,7 +38,9 @@ class npc_type(Enum):
 	old_man  = 2
 	thief    = 3
 
-parameter = {"max_level":0}
+parameter = {"highest_floor": 0, "this_floor": 0}
+
+floors = {}
 
 parameter['level'] 		= 1
 parameter['health'] 	= 1000
@@ -49,7 +51,7 @@ parameter['money'] 		= 0
 
 parameter['0_key']  = 1
 parameter['1_key']  = 1
-parameter['2_key']  = 0
+parameter['2_key']  = 1
 
 class text_object():
 	def __init__(self, screen, text, location):
@@ -214,15 +216,14 @@ class door(object):
 
 class floor():
 	def __init__(self, screen, path):
-		data = open(path)
-		data = json.load(data)
-		
-		self.name  = data["name"]
+		data = json.load(open("floors/" + path + ".json"))
+
 		self.scene = data["scene"]
-		self.allow_teleport = data['config']['allow_teleport']
+		self.config = data['config']
+		self.this_floor = data['floor']
 		self.objects 	= []
-		self.up_floor   = [0, 0]
-		self.down_floor = [0, 0]
+		self.up_floor   = (0, 0)
+		self.down_floor = (0, 0)
 
 		for i in range(1,14):
 			for j in range(1,14):
@@ -233,11 +234,11 @@ class floor():
 				elif self.scene[i - 1][j - 1] == 3:
 					self.objects.append(object(screen, "resources/地形/wall 3.png", j, i, o_type = o_type.wall))
 				elif self.scene[i - 1][j - 1] == 4:
-					self.down_floor = [j, i]
+					self.down_floor = (j, i)
 					if not data['config']['prev_floor'] == None:
 						self.objects.append(object(screen, "resources/地形/down_floor.png", j, i, o_type = o_type.down_floor))
 				elif self.scene[i - 1][j - 1] == 5:
-					self.up_floor = [j, i]
+					self.up_floor = (j, i)
 					if not data['config']['next_floor'] == None:
 						self.objects.append(object(screen, "resources/地形/up_floor.png", j, i, o_type = o_type.up_floor))
 				elif type(self.scene[i - 1][j - 1]) == dict:
@@ -284,8 +285,17 @@ class player(object):
 			self.counter += 1
 			if self.counter == 4:
 				self.counter = 0
+		else:
+			return
+
 		for i in objs:
 			if i.valid and i.location == [self.location[0] + self.vector[0], self.location[1] + self.vector[1]]:
+				if i.o_type == o_type.up_floor:
+					jump(self.screen, this_floor.config['next_floor'])
+					return
+				elif i.o_type == o_type.down_floor:
+					jump(self.screen, this_floor.config['prev_floor'])
+					return
 				if not i.trigger():
 					return
 				
@@ -293,6 +303,26 @@ class player(object):
 		self.location[0] += self.vector[0] 
 		self.location[1] +=  self.vector[1] 
 
+def jump(screen, destination):
+	global warrior, parameter, this_floor
+	warrior.vector = [0, 0, warrior.vector[2]]
+	if destination > parameter['highest_floor']:
+		parameter['highest_floor'] = destination
+		floors[parameter["this_floor"]] = this_floor
+		this_floor = floor(screen, str(destination))
+		warrior.location = this_floor.down_floor
+	else:
+		floors[parameter["this_floor"]] = this_floor
+		this_floor = floors[destination]
+		if destination < parameter["this_floor"]:
+			warrior.location = this_floor.up_floor
+			print(this_floor.up_floor)
+		else:
+			warrior.location = this_floor.down_floor
+			print(this_floor.down_floor)
+	print(warrior.location)
+	warrior.location = list(warrior.location)
+	parameter["this_floor"] = destination
 
 def produce_number(screen, number,x ,y):
 	c = []
@@ -378,8 +408,8 @@ for i in range(-6,15):
 warrior = player(screen)
 pygame.display.set_caption("Mota")
 
-this_floor = floor(screen, "floor/demo.json")
-warrior.location = this_floor.down_floor
+this_floor = floor(screen, "0")
+warrior.location = list(this_floor.down_floor)
 while True:
 	check_events(warrior, scenes + this_floor.objects, conversation_control)
 	information = (produce_number(screen, str(parameter['level']), -2.1, 1) + 
