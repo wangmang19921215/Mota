@@ -4,6 +4,13 @@ import time
 import json
 from enum import Enum
 
+icons = {
+	"npc_0" : "resources/NPC/仙女 0.png",
+	"npc_1" : "resources/NPC/老人 0.png",
+	"npc_2" : "resources/NPC/商人 0.png",
+	"npc_3" : "resources/NPC/盜賊 0.png"
+}
+
 class o_type(Enum):
 	scene 	= -1
 	ground 	= 0
@@ -42,18 +49,37 @@ parameter['0_key']  = 1
 parameter['1_key']  = 1
 parameter['2_key']  = 0
 
+class text_object():
+	def __init__(self, screen, text, location):
+		self.text = text
+		self.location = location
+		self.screen = screen
+	def blitme(self):
+		self.screen.blit(self.text, (self.location[0] * 48 + 336, self.location[1] * 48 + 96))
+
 class conversation():
-	def __init__(self):
+	def __init__(self, screen):
 		self.in_conversation = False
+		self.screen = screen
 		self.objects = []
 
-	def print_word(self, path, name, text):
+	def print_word(self, name, text, path = ""):
 		self.in_conversation = True
+		self.objects.append(object(self.screen, "resources/字/msg_box.png", 13, 15, o_type = o_type.scene, multiple = 1))
 
+		if path != "":
+			self.objects.append(object(self.screen, icons[path], 1.75, 11.25, o_type = o_type.scene, multiple = 1.5))
 
-	def is_conversation(self):
-		return self.in_conversation
+		font = pygame.font.Font("resources/GenRyuMinTW_Regular.ttf", 32)
+		self.objects.append(text_object(self.screen, font.render(name , True , (255,255,255)), (2, 9.5)))
+		font = pygame.font.Font("resources/GenRyuMinTW_Regular.ttf", 20)
+		self.objects.append(text_object(self.screen, font.render(text , True , (255,255,255)), (1, 10.5)))
 
+		font = pygame.font.Font("resources/GenRyuMinTW_Regular.ttf", 14)
+		self.objects.append(text_object(self.screen, font.render("按任意鍵退出" , True , (255,255,255)), (11, 11.5)))
+
+	def end_conversation(self):
+		self.in_conversation = False
 
 def cost(item, amount):
 	if parameter[item] >= amount:
@@ -118,6 +144,10 @@ class object():
 
 class npc(object):
 	def init2(self, arg):
+		global conversation_control
+
+		self.npc_script.conversation_control = conversation_control
+
 		self.name = arg["name"]
 		if self.npc_script != None:
 			self.npc_script.__init__(self.npc_script, arg)
@@ -226,14 +256,11 @@ class player(object):
 			self.images[3].append(pygame.transform.scale(pygame.image.load('resources/勇者/up %s.png' % i), (48, 48)))
 		self.rect = self.images[0][0].get_rect()
 		self.vector = [0,0,2]
-		#put spaceship on the bottom of window
 
 		self.location = [1,1]
 		self.speed = 3
 
 	def blitme(self):
-		#buld the spaceship at the specific location
-
 		self.rect.centerx = self.location[0] * 48 + 336 - self.rect.width/2
 		self.rect.bottom = self.location[1] * 48 + 96 - self.rect.height
 
@@ -264,7 +291,7 @@ def check_events(player, objs, conversation_control):
 	for event in pygame.event.get():
 		if event.type == pygame.QUIT:
 			sys.exit()
-		if not conversation_control.is_conversation():
+		if not conversation_control.in_conversation:
 			if event.type == pygame.KEYDOWN:
 				if event.key == pygame.K_RIGHT:
 					player.vector = [1, 0, 0]
@@ -283,6 +310,11 @@ def check_events(player, objs, conversation_control):
 					player.vector = [player.vector[0], 0, player.vector[2]]
 				elif event.key == pygame.K_UP:
 					player.vector = [player.vector[0], 0, player.vector[2]]
+		else:
+			player.vector = [0, 0, player.vector[2]]
+			if event.type == pygame.KEYDOWN:
+				conversation_control.end_conversation()
+
 	player.move(objs)
 
 
@@ -290,66 +322,62 @@ def update_screen(screen, objects):
 	screen.fill((30,30,30))
 	for i in objects:
 		i.blitme()
-	font = pygame.font.Font(None,50)
-	text = font.render("Hi", True, (0,0,0))
 	pygame.display.flip()
 
-def run_game():
-	pygame.init()
-	screen  = pygame.display.set_mode((int(576 * 1.5 + 144), int(480 * 1.5)))
 
-	conversation_control = conversation()
+pygame.init()
+screen  = pygame.display.set_mode((int(576 * 1.5 + 144), int(480 * 1.5)))
 
-	grounds 	= []
-	scenes 		= []
+conversation_control = conversation(screen)
 
-	for i in range(-6,0):
-		scenes.append(object(screen, "resources/地形/wall 3.png", i,  0, o_type = o_type.scene))
-		scenes.append(object(screen, "resources/地形/wall 3.png", i, 14, o_type = o_type.scene))
-		scenes.append(object(screen, "resources/地形/wall 3.png", i, 7, o_type = o_type.scene))
+grounds 	= []
+scenes 		= []
 
-	for i in range(15):
-		scenes.append(object(screen, "resources/地形/wall 3.png", i,  0, o_type = o_type.wall))
-		scenes.append(object(screen, "resources/地形/wall 3.png", i, 14, o_type = o_type.wall))
-		scenes.append(object(screen, "resources/地形/wall 3.png", 0,  i, o_type = o_type.wall))
-		scenes.append(object(screen, "resources/地形/wall 3.png", 14, i, o_type = o_type.wall))
-		scenes.append(object(screen, "resources/地形/wall 3.png", -6, i, o_type = o_type.scene))
+for i in range(-6,0):
+	scenes.append(object(screen, "resources/地形/wall 3.png", i,  0, o_type = o_type.scene))
+	scenes.append(object(screen, "resources/地形/wall 3.png", i, 14, o_type = o_type.scene))
+	scenes.append(object(screen, "resources/地形/wall 3.png", i, 7, o_type = o_type.scene))
 
-	scenes.append(object(screen, "resources/勇者/down 0.png", -4.5, 1.25, o_type = o_type.scene))
-	scenes.append(object(screen, "resources/字/等级.png", -2.5, 0.75, o_type = o_type.scene,multiple = 1.2))
+for i in range(15):
+	scenes.append(object(screen, "resources/地形/wall 3.png", i,  0, o_type = o_type.wall))
+	scenes.append(object(screen, "resources/地形/wall 3.png", i, 14, o_type = o_type.wall))
+	scenes.append(object(screen, "resources/地形/wall 3.png", 0,  i, o_type = o_type.wall))
+	scenes.append(object(screen, "resources/地形/wall 3.png", 14, i, o_type = o_type.wall))
+	scenes.append(object(screen, "resources/地形/wall 3.png", -6, i, o_type = o_type.scene))
 
-	scenes.append(object(screen, "resources/字/体力.png", -3.5, 2, o_type = o_type.scene))
-	scenes.append(object(screen, "resources/字/攻击.png", -3.5, 3, o_type = o_type.scene))
-	scenes.append(object(screen, "resources/字/防御.png", -3.5, 4, o_type = o_type.scene))
-	scenes.append(object(screen, "resources/字/敏捷.png", -3.5, 5, o_type = o_type.scene))
-	scenes.append(object(screen, "resources/道具/16.png", -4.5, 9, o_type = o_type.scene))
-	scenes.append(object(screen, "resources/道具/17.png", -4.5, 10, o_type = o_type.scene))
-	scenes.append(object(screen, "resources/道具/18.png", -4.5, 11, o_type = o_type.scene))
-	scenes.append(object(screen, "resources/道具/31.png", -4.6, 12, o_type = o_type.scene))
+scenes.append(object(screen, "resources/勇者/down 0.png", -4.5, 1.25, o_type = o_type.scene))
+scenes.append(object(screen, "resources/字/等级.png", -2.5, 0.75, o_type = o_type.scene,multiple = 1.2))
+
+scenes.append(object(screen, "resources/字/体力.png", -3.5, 2, o_type = o_type.scene))
+scenes.append(object(screen, "resources/字/攻击.png", -3.5, 3, o_type = o_type.scene))
+scenes.append(object(screen, "resources/字/防御.png", -3.5, 4, o_type = o_type.scene))
+scenes.append(object(screen, "resources/字/敏捷.png", -3.5, 5, o_type = o_type.scene))
+scenes.append(object(screen, "resources/道具/16.png", -4.5, 9, o_type = o_type.scene))
+scenes.append(object(screen, "resources/道具/17.png", -4.5, 10, o_type = o_type.scene))
+scenes.append(object(screen, "resources/道具/18.png", -4.5, 11, o_type = o_type.scene))
+scenes.append(object(screen, "resources/道具/31.png", -4.6, 12, o_type = o_type.scene))
 
 
-	for i in range(-6,15):
-		for j in range(0,15):
-			grounds.append(object(screen, "resources/地形/ground.png", i, j, o_type = o_type.ground))
+for i in range(-6,15):
+	for j in range(0,15):
+		grounds.append(object(screen, "resources/地形/ground.png", i, j, o_type = o_type.ground))
 
-	warrior = player(screen)
-	pygame.display.set_caption("Mota")
+warrior = player(screen)
+pygame.display.set_caption("Mota")
 
-	this_floor = floor(screen, "floor/demo.json")
-	warrior.location = this_floor.down_floor
-	while True:
-		check_events(warrior, scenes + this_floor.objects, conversation_control)
-		information = (produce_number(screen, str(parameter['level']), -2.1, 1) + 
-			   produce_number(screen, str(parameter['health']), -3, 2) + 
-			   produce_number(screen, str(parameter['attack']), -3, 3) + 
-			   produce_number(screen, str(parameter['defence']), -3, 4) + 
-			   produce_number(screen, str(parameter['agility']), -3, 5) +
-			   produce_number(screen, str(parameter['0_key']), -3, 8.5) +
-			   produce_number(screen, str(parameter['1_key']), -3, 9.5) +
-			   produce_number(screen, str(parameter['2_key']), -3, 10.5) +
-			   produce_number(screen, str(parameter['money']), -3, 11.5))
+this_floor = floor(screen, "floor/demo.json")
+warrior.location = this_floor.down_floor
+while True:
+	check_events(warrior, scenes + this_floor.objects, conversation_control)
+	information = (produce_number(screen, str(parameter['level']), -2.1, 1) + 
+		   produce_number(screen, str(parameter['health']), -3, 2) + 
+		   produce_number(screen, str(parameter['attack']), -3, 3) + 
+		   produce_number(screen, str(parameter['defence']), -3, 4) + 
+		   produce_number(screen, str(parameter['agility']), -3, 5) +
+		   produce_number(screen, str(parameter['0_key']), -3, 8.5) +
+		   produce_number(screen, str(parameter['1_key']), -3, 9.5) +
+		   produce_number(screen, str(parameter['2_key']), -3, 10.5) +
+		   produce_number(screen, str(parameter['money']), -3, 11.5))
 
-		update_screen(screen, grounds + information + scenes + [this_floor, warrior])
-		time.sleep(0.085)
-
-run_game()
+	update_screen(screen, grounds + information + scenes + [this_floor, warrior] + (conversation_control.objects if conversation_control.in_conversation else []))
+	time.sleep(0.085)
