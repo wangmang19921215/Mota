@@ -159,6 +159,7 @@ class fight():
 				if j == 0:
 					j = i
 					counter = 0
+					continue
 				else:
 					j -= 1
 					counter = 5

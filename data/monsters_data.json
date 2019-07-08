@@ -4,7 +4,7 @@
 			"id"  : 8,
 			"name": "綠色史萊姆",
 			"path": "8",
-			"hp"  :	100,
+			"hp"  :	10,
 			"atk" : 12,
 			"dfs" : 2,
 			"agility": 1,
@@ -24,9 +24,9 @@
 			"dex" : 1,
 			"agility": 1,
 			"money": 1,
-			"atk_type": 0,
+			"atk_type": 2,
 			"sound": "hit",
-			"img": "hit"
+			"img": "poisonous"
 		}
 	]
 }
