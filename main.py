@@ -6,6 +6,7 @@ from random import random as rnd
 from enum import Enum
 
 class o_type(Enum):
+	effect  = -2
 	scene 	= -1
 	ground 	= 0
 	wall 	= 1
@@ -61,7 +62,7 @@ parameter['level'] 		= 1
 parameter['health'] 	= 1000
 parameter['attack'] 	= 10
 parameter['defence'] 	= 10
-parameter['agility'] 	= 100
+parameter['agility'] 	= 1
 parameter['money'] 		= 0
 
 parameter['0_key']  = 1
@@ -71,7 +72,7 @@ parameter['2_key']  = 1
 parameter['sword']  = 49
 parameter['shield']  = -1
 
-parameter['is_poisoning'] = True
+parameter['is_poisoning'] = False
 
 class text_object():
 	def __init__(self, screen, text, location):
@@ -91,7 +92,7 @@ class fight():
 		global this_floor, grounds, information, scenes,warrior
 		self.in_fighting = True
 
-		path, hp, atk, dfs, agl, name, money, attack_type, sound, dexterity = monster.property['path'], monster.property['hp'], monster.property['atk'], monster.property['dfs'], monster.property['agility'], monster.property['name'], monster.property['money'], monster.property['atk_type'], monster.property['sound'],monster.property['dex']
+		path, hp, atk, dfs, agl, name, money, attack_type, sound, dexterity, img = monster.property['path'], monster.property['hp'], monster.property['atk'], monster.property['dfs'], monster.property['agility'], monster.property['name'], monster.property['money'], monster.property['atk_type'], monster.property['sound'], monster.property['dex'], monster.property['img']
 		
 		font = pygame.font.Font("resources/GenRyuMinTW_Regular.ttf", 24)
 		
@@ -107,25 +108,21 @@ class fight():
 		counter = 0
 		this_scenes = []
 		this_scenes.append(object(self.screen, "resources/字/fgt_box.png", 13, 13, o_type = o_type.scene, multiple = 1))
-		this_scenes.append(object(self.screen, monster.path , 4, 6, dynamic = True, o_type = o_type.scene, multiple = 3))
-		this_scenes.append(object(self.screen, icons['player'], 11, 6, o_type = o_type.scene, multiple = 3))
 		this_scenes.append(text_object(self.screen, font.render(str(name) , True , (255,255,255)), (2, 1.3)))
 		this_scenes.append(text_object(self.screen, font.render(str("勇者") , True , (255,255,255)), (9.5, 1.3)))
 		this_scenes.append(text_object(self.screen, font.render("ATK： " + str(atk) , True , (255,255,255)), (2, 5.2)))
 		this_scenes.append(text_object(self.screen, font.render("ATK： " + str(parameter['attack']) , True , (255,255,255)), (9, 5.2)))
 		this_scenes.append(text_object(self.screen, font.render("DFS： " + str(dfs) , True , (255,255,255)), (2, 5.9)))
 		this_scenes.append(text_object(self.screen, font.render("DFS： " + str(parameter['defence']) , True , (255,255,255)), (9, 5.9)))
-
-		def update():
-			objects = []
-
-			objects.append(text_object(self.screen, font.render("HP： " + str(hp) , True , (255,255,255)), (2, 4.5)))
-			objects.append(text_object(self.screen, font.render("HP： " + str(parameter['health']) , True , (255,255,255)), (9, 4.5)))
-			
-			update_screen(self.screen, grounds + information + scenes + [warrior] + this_floor.objects + this_scenes + objects)
-
+		
+		effects = []
 
 		while self.in_fighting and ((hp > 0 and parameter['health'] > 0) or (counter < 4 or 4 < counter < 9)):
+
+			objects = []
+
+			objects.append(object(self.screen, monster.path , 4, 6, dynamic = True, o_type = o_type.scene, multiple = 3))
+			objects.append(object(self.screen, icons['player'], 11, 6, o_type = o_type.scene, multiple = 3))
 
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
@@ -139,19 +136,25 @@ class fight():
 						hp -= max(parameter['attack'] - dfs, 0) * 2					
 						if parameter['sword'] != -1:
 							play_audio("critical_cut")
+							effects.append(effect(self.screen, "resources/攻擊/sword" + str(parameter['sword']) + " %s.png", 4, 6, dynamic = True, o_type = o_type.effect, multiple = 1))
 						else:
 							play_audio("critical_hit")
+							effects.append(effect(self.screen, "resources/攻擊/hit %s.png", 4, 6, dynamic = True, o_type = o_type.effect, multiple = 1))
+
 					else:
 						hp -= max(parameter['attack'] - dfs, 0)			
 						if parameter['sword'] != -1:
 							play_audio("cut")
+							effects.append(effect(self.screen, "resources/攻擊/sword" + str(parameter['sword']) + " %s.png", 4, 6, dynamic = True, o_type = o_type.effect, multiple = 1))
 						else:
 							play_audio("hit")
+							effects.append(effect(self.screen, "resources/攻擊/hit %s.png", 4, 6, dynamic = True, o_type = o_type.effect, multiple = 1))
+
 
 					hp = max(hp, 0)
 				else:
 					play_audio("miss")
-
+			
 			if counter == 9 and j >= 0:
 				if j == 0:
 					j = i
@@ -167,14 +170,20 @@ class fight():
 					if rnd() < (dexterity - parameter['agility'] / 3)/100:
 						parameter['health'] -= max(atk - parameter['defence'], 0) * 2
 						play_audio("critical_" + sound)
+						effects.append(effect(self.screen, "resources/攻擊/" + img + " %s.png", 11, 6, dynamic = True, o_type = o_type.effect, multiple = 1))
 					else:
 						parameter['health'] -= max(atk - parameter['defence'], 0)
 						play_audio(sound)
+						effects.append(effect(self.screen, "resources/攻擊/" + img + " %s.png", 11, 6, dynamic = True, o_type = o_type.effect, multiple = 1))
 					parameter['health'] = max(parameter['health'], 0)
 				else:
 					play_audio("miss")
 
-			update()
+			objects.append(text_object(self.screen, font.render("HP： " + str(hp) , True , (255,255,255)), (2, 4.5)))
+			objects.append(text_object(self.screen, font.render("HP： " + str(parameter['health']) , True , (255,255,255)), (9, 4.5)))
+
+			update_screen(self.screen, grounds + information + scenes + [warrior] + this_floor.objects + this_scenes + objects + effects)
+
 			time.sleep(0.075)
 			counter += 1
 
@@ -363,6 +372,23 @@ class object():
 				self.counter += 1
 				if self.counter == 4:
 					self.counter = 0
+			else:
+
+				self.screen.blit(self.image, self.rect)
+
+class effect(object):
+	def blitme(self):
+		if self.visible:
+			self.rect.centerx = self.location[0] * 48 + 336 - self.rect.width / 2
+			self.rect.bottom = self.location[1] * 48 + 96 - self.rect.height
+			if self.dynamic:
+				image = pygame.transform.scale(pygame.image.load(self.path % self.counter),(self.rect.width, self.rect.height))
+
+				self.screen.blit(image, self.rect)
+
+				self.counter += 1
+				if self.counter == 4:
+					self.visible = False
 			else:
 
 				self.screen.blit(self.image, self.rect)

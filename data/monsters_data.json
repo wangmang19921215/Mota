@@ -11,7 +11,8 @@
 			"dex": 1,
 			"money": 1,
 			"atk_type": 0,
-			"sound": "hit"
+			"sound": "hit",
+			"img": "hit"
 		},
 		{
 			"id"  : 9,
@@ -24,7 +25,8 @@
 			"agility": 1,
 			"money": 1,
 			"atk_type": 0,
-			"sound": "hit"
+			"sound": "hit",
+			"img": "hit"
 		}
 	]
 }
