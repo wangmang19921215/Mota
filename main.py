@@ -121,7 +121,7 @@ class fight():
 			self.objects.append(text_object(self.screen, font.render("DFS： " + str(parameter['defence']) , True , (255,255,255)), (9, 5.9)))
 
 
-			update_screen(self.screen, grounds + information + scenes + [warrior] + self.objects + this_floor.objects)
+			update_screen(self.screen, grounds + information + scenes + [warrior] + this_floor.objects + self.objects)
 			counter += 1
 			time.sleep(0.075)
 		self.objects = []
@@ -394,7 +394,7 @@ class item(object):
 		if self.i_type == 1:
 			parameter['defence'] += 2
 		if self.i_type == 2:
-			parameter['agility'] += 2
+			parameter['agility'] += 1
 		if self.i_type == 4:
 			parameter['health'] += 200
 		if self.i_type == 5:
@@ -417,6 +417,9 @@ class item(object):
 			parameter['level'] += 1
 			parameter['attack'] += 5
 			parameter['defence'] += 3
+		self.valid = False
+		self.visible = False
+		return True
 
 
 class player(object):
@@ -585,5 +588,5 @@ while True:
 		   produce_number(screen, str(parameter['2_key']), -3.5, 10.5) +
 		   produce_number(screen, str(parameter['money']), -3.5, 11.5))
 
-	update_screen(screen, grounds + information + scenes + [this_floor, warrior] + conversation_control.objects + fight_system.objects)
+	update_screen(screen, grounds + information + scenes + [this_floor, warrior] + conversation_control.objects)
 	time.sleep(0.075)
