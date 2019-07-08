@@ -27,6 +27,13 @@ class d_type(Enum):
 	red    = 2
 	magic  = 3
 
+class atk_type(Enum):
+	physic = 0
+	magic  = 1
+	poisonous = 2
+	double = 3
+	triple = 4
+
 class npc_type(Enum):
 	fairy	 = 0
 	trader   = 1
@@ -54,16 +61,17 @@ parameter['level'] 		= 1
 parameter['health'] 	= 1000
 parameter['attack'] 	= 10
 parameter['defence'] 	= 10
-parameter['agility'] 	= 1
+parameter['agility'] 	= 100
 parameter['money'] 		= 0
 
 parameter['0_key']  = 1
 parameter['1_key']  = 1
 parameter['2_key']  = 1
 
-parameter['sword']  = -1
+parameter['sword']  = 49
 parameter['shield']  = -1
 
+parameter['is_poisoning'] = True
 
 class text_object():
 	def __init__(self, screen, text, location):
@@ -82,13 +90,42 @@ class fight():
 	def fight_with(self, monster):
 		global this_floor, grounds, information, scenes,warrior
 		self.in_fighting = True
-		path, hp, atk, dfs, agl, name, money = monster.path, monster.health, monster.attack, monster.defence, monster.agility, monster.name, monster.money
+
+		path, hp, atk, dfs, agl, name, money, attack_type, sound, dexterity = monster.property['path'], monster.property['hp'], monster.property['atk'], monster.property['dfs'], monster.property['agility'], monster.property['name'], monster.property['money'], monster.property['atk_type'], monster.property['sound'],monster.property['dex']
 		
 		font = pygame.font.Font("resources/GenRyuMinTW_Regular.ttf", 24)
 		
+
+		i = 1
+		if attack_type == atk_type.double.value:
+			i = 2
+		elif attack_type == atk_type.triple.value:
+			i = 3
+
+		j = i
+
 		counter = 0
-		while self.in_fighting and ((hp > 0 and parameter['health'] > 0) or counter <= 2):
-			self.objects = []
+		this_scenes = []
+		this_scenes.append(object(self.screen, "resources/字/fgt_box.png", 13, 13, o_type = o_type.scene, multiple = 1))
+		this_scenes.append(object(self.screen, monster.path , 4, 6, dynamic = True, o_type = o_type.scene, multiple = 3))
+		this_scenes.append(object(self.screen, icons['player'], 11, 6, o_type = o_type.scene, multiple = 3))
+		this_scenes.append(text_object(self.screen, font.render(str(name) , True , (255,255,255)), (2, 1.3)))
+		this_scenes.append(text_object(self.screen, font.render(str("勇者") , True , (255,255,255)), (9.5, 1.3)))
+		this_scenes.append(text_object(self.screen, font.render("ATK： " + str(atk) , True , (255,255,255)), (2, 5.2)))
+		this_scenes.append(text_object(self.screen, font.render("ATK： " + str(parameter['attack']) , True , (255,255,255)), (9, 5.2)))
+		this_scenes.append(text_object(self.screen, font.render("DFS： " + str(dfs) , True , (255,255,255)), (2, 5.9)))
+		this_scenes.append(text_object(self.screen, font.render("DFS： " + str(parameter['defence']) , True , (255,255,255)), (9, 5.9)))
+
+		def update():
+			objects = []
+
+			objects.append(text_object(self.screen, font.render("HP： " + str(hp) , True , (255,255,255)), (2, 4.5)))
+			objects.append(text_object(self.screen, font.render("HP： " + str(parameter['health']) , True , (255,255,255)), (9, 4.5)))
+			
+			update_screen(self.screen, grounds + information + scenes + [warrior] + this_floor.objects + this_scenes + objects)
+
+
+		while self.in_fighting and ((hp > 0 and parameter['health'] > 0) or (counter < 4 or 4 < counter < 9)):
 
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
@@ -96,39 +133,53 @@ class fight():
 				if event.type == pygame.KEYDOWN and event.key == ord("q"):
 					self.quit()
 
-			if counter == 2:
+			if counter == 4:
 				if rnd() > (agl - parameter['agility'] / 3)/100:
-					hp -= max(parameter['attack'] - dfs, 0)
 					if rnd() < (parameter['agility'] - agl / 3)/100:
-						hp -= max(parameter['attack'] - dfs, 0)
+						hp -= max(parameter['attack'] - dfs, 0) * 2					
+						if parameter['sword'] != -1:
+							play_audio("critical_cut")
+						else:
+							play_audio("critical_hit")
+					else:
+						hp -= max(parameter['attack'] - dfs, 0)			
+						if parameter['sword'] != -1:
+							play_audio("cut")
+						else:
+							play_audio("hit")
+
 					hp = max(hp, 0)
+				else:
+					play_audio("miss")
 
-			if counter == 5:
-				if rnd() > (parameter['agility'] - agl / 3)/100:
-					parameter['health'] -= max(atk - parameter['defence'], 0)
-					if rnd() < (agl - parameter['agility'] / 3)/100:
+			if counter == 9 and j >= 0:
+				if j == 0:
+					j = i
+					counter = 0
+				else:
+					j -= 1
+					counter = 5
+
+				if attack_type == atk_type.poisonous.value:
+					if rnd() < 0.2:
+						parameter['is_poisoning'] = True
+				if rnd() > (parameter['agility'] - dexterity / 3)/100:
+					if rnd() < (dexterity - parameter['agility'] / 3)/100:
+						parameter['health'] -= max(atk - parameter['defence'], 0) * 2
+						play_audio("critical_" + sound)
+					else:
 						parameter['health'] -= max(atk - parameter['defence'], 0)
+						play_audio(sound)
 					parameter['health'] = max(parameter['health'], 0)
-				counter = 0
+				else:
+					play_audio("miss")
 
-			self.objects.append(object(self.screen, "resources/字/fgt_box.png", 13, 13, o_type = o_type.scene, multiple = 1))
-			self.objects.append(object(self.screen, monster.path , 4, 6, dynamic = True, o_type = o_type.scene, multiple = 3))
-			self.objects.append(object(self.screen, icons['player'], 11, 6, o_type = o_type.scene, multiple = 3))
-			self.objects.append(text_object(self.screen, font.render(str(name) , True , (255,255,255)), (2, 1.3)))
-			self.objects.append(text_object(self.screen, font.render(str("勇者") , True , (255,255,255)), (9.5, 1.3)))
-			self.objects.append(text_object(self.screen, font.render("HP： " + str(hp) , True , (255,255,255)), (2, 4.5)))
-			self.objects.append(text_object(self.screen, font.render("HP： " + str(parameter['health']) , True , (255,255,255)), (9, 4.5)))
-			self.objects.append(text_object(self.screen, font.render("ATK： " + str(atk) , True , (255,255,255)), (2, 5.2)))
-			self.objects.append(text_object(self.screen, font.render("ATK： " + str(parameter['attack']) , True , (255,255,255)), (9, 5.2)))
-			self.objects.append(text_object(self.screen, font.render("DFS： " + str(dfs) , True , (255,255,255)), (2, 5.9)))
-			self.objects.append(text_object(self.screen, font.render("DFS： " + str(parameter['defence']) , True , (255,255,255)), (9, 5.9)))
-
-
-			update_screen(self.screen, grounds + information + scenes + [warrior] + this_floor.objects + self.objects)
-			counter += 1
+			update()
 			time.sleep(0.075)
+			counter += 1
 
-		self.objects = []
+		objects = []
+
 		if not self.in_fighting:
 			return
 
@@ -139,7 +190,11 @@ class fight():
 			monster.visible = False
 			return
 
-		time.sleep(3)
+		t = time.time()
+		while time.time() - t <= 3:
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					sys.exit()
 
 		self.screen.fill((0,0,0))
 
@@ -149,7 +204,6 @@ class fight():
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					sys.exit()
-			update_screen(self.screen, grounds + information + scenes + [warrior] + this_floor.objects + self.objects)
 			counter += 1
 			time.sleep(0.075)
 
@@ -317,13 +371,7 @@ class object():
 class monster(object):
 	def init2(self, arg):
 		global monsters
-		monster_data = monsters[arg["m_type"]]
-		self.name   = monster_data['name']
-		self.health = monster_data["hp"]
-		self.attack = monster_data["atk"]
-		self.defence = monster_data["dfs"]
-		self.agility = monster_data["agility"]
-		self.money = monster_data["money"]
+		self.property = monsters[arg["m_type"]]
 
 	def trigger(self):
 		global fight_system, warrior
@@ -366,6 +414,7 @@ class door(object):
 				if cost(str(self.d_type) + "_key", 1):
 					self.is_open = True
 					self.count   = 0
+					play_audio("open_door")
 					return False
 			else:
 				return magic_door()
@@ -466,7 +515,7 @@ class item(object):
 			parameter['health'] += 200
 		if self.i_type == 5:
 			parameter['health'] += 400
-		if self.i_type == 15:
+		if self.i_type == 15: 
 			parameter['health'] *= 2
 		if self.i_type == 16:
 			parameter['0_key'] += 1
@@ -564,6 +613,11 @@ class player(object):
 				
 		self.location[0] += self.vector[0] 
 		self.location[1] +=  self.vector[1] 
+
+		if parameter['is_poisoning']:
+			parameter['health'] -= 20
+			if parameter['health'] <= 0:
+				parameter['health'] = 1
 			
 
 
@@ -592,6 +646,14 @@ def produce_number(screen, number,x ,y):
 		c.append(object(screen, "resources/字/%s.png" % j, x + 0.5 * i, y - 0.025, o_type = o_type.scene, multiple = 0.22))
 	return c
 
+def play_audio(path):
+	if pygame.mixer.music.get_busy():
+		pygame.mixer.music.stop()
+
+	audio_player = pygame.mixer.music
+	audio_player.load("resources/音效/" + path + ".mp3")
+	audio_player.play()
+
 
 
 def update_screen(screen, objects):
@@ -601,6 +663,7 @@ def update_screen(screen, objects):
 
 
 pygame.init()
+
 screen  = pygame.display.set_mode((int(576 * 1.5 + 144), int(480 * 1.5)))
 
 conversation_control = conversation(screen)
