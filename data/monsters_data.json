@@ -2,11 +2,21 @@
 	"monster": [
 		{
 			"id"  : 8,
-			"name": "史萊姆",
+			"name": "綠色史萊姆",
 			"path": "8",
 			"hp"  :	10,
-			"atk" : 520,
-			"dfs" : 200,
+			"atk" : 12,
+			"dfs" : 2,
+			"agility": 1,
+			"money": 1
+		},
+		{
+			"id"  : 9,
+			"name": "綠色史萊姆",
+			"path": "9",
+			"hp"  :	12,
+			"atk" : 15,
+			"dfs" : 6,
 			"agility": 1,
 			"money": 1
 		}

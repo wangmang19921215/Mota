@@ -18,6 +18,9 @@ class o_type(Enum):
 	door = 6
 	barrier = 7
 
+	item = 8
+
+
 class d_type(Enum):
 	yellow = 0
 	blue   = 1
@@ -81,7 +84,7 @@ class fight():
 		font = pygame.font.Font("resources/GenRyuMinTW_Regular.ttf", 24)
 		
 		counter = 0
-		while self.in_fighting and ((hp > 0 and parameter['health'] > 0) or counter != 3):
+		while self.in_fighting and ((hp > 0 and parameter['health'] > 0) or counter <= 3):
 			self.objects = []
 
 			for event in pygame.event.get():
@@ -121,9 +124,8 @@ class fight():
 			update_screen(self.screen, grounds + information + scenes + [warrior] + self.objects + this_floor.objects)
 			counter += 1
 			time.sleep(0.075)
-
+		self.objects = []
 		if not self.in_fighting:
-			self.objects = []
 			return
 
 		self.in_fighting = False
@@ -343,18 +345,23 @@ class floor():
 			for j in range(1,14):
 				if self.scene[i - 1][j - 1] == 1:
 					self.objects.append(object(screen, "resources/地形/wall.png", j, i, o_type = o_type.wall))
+
 				elif self.scene[i - 1][j - 1] == 2:
 					self.objects.append(object(screen, "resources/地形/wall 2.png", j, i, o_type = o_type.wall))
+
 				elif self.scene[i - 1][j - 1] == 3:
 					self.objects.append(object(screen, "resources/地形/wall 3.png", j, i, o_type = o_type.wall))
+
 				elif self.scene[i - 1][j - 1] == 4:
 					self.down_floor = (j, i)
 					if not data['config']['prev_floor'] == None:
 						self.objects.append(object(screen, "resources/地形/down_floor.png", j, i, o_type = o_type.down_floor))
+
 				elif self.scene[i - 1][j - 1] == 5:
 					self.up_floor = (j, i)
 					if not data['config']['next_floor'] == None:
 						self.objects.append(object(screen, "resources/地形/up_floor.png", j, i, o_type = o_type.up_floor))
+
 				elif type(self.scene[i - 1][j - 1]) == dict:
 					module = __import__("scripts." + self.scene[i - 1][j - 1]['program'])
 					exec("global NPC; NPC = module." + self.scene[i - 1][j - 1]['program'] + ".NPC")
@@ -364,12 +371,52 @@ class floor():
 
 				elif 62 >= self.scene[i - 1][j - 1] >= 60:
 					self.objects.append(door(screen, "resources/地形/門/%s 0.png" % (["黃","藍","紅"][self.scene[i - 1][j - 1] - 60]), j, i, o_type = o_type.door, arg = {"d_type": self.scene[i - 1][j - 1] - 60}))
+				
+				elif 71 >= self.scene[i - 1][j - 1] >= 70:
+					self.objects.append(object(screen, "resources/地形/" + (["lava","star"][self.scene[i - 1][j - 1] - 70]) + " %s.png", j, i, dynamic = True, o_type = o_type.wall))
+				
+				elif 900 > self.scene[i - 1][j - 1] >= 800:
+					self.objects.append(item(screen, "resources/道具/%s.png" % str(self.scene[i - 1][j - 1] - 800), j, i, o_type = o_type.item, arg = {'i_type': self.scene[i - 1][j - 1] - 800}))
 				elif self.scene[i - 1][j - 1] >= 2000:
 					self.objects.append(monster(screen, "resources/怪物/" + str(self.scene[i - 1][j - 1] % 1000) + ",%s.png", j, i, dynamic = True, o_type = o_type.monster, arg = {'m_type': self.scene[i - 1][j - 1] % 1000}))
 
 	def blitme(self):
 		for i in self.objects:
 			i.blitme()
+
+class item(object):
+	def init2(self, arg):
+		self.i_type = arg['i_type']
+
+	def trigger(self):
+		if self.i_type == 0:
+			parameter['attack'] += 2
+		if self.i_type == 1:
+			parameter['defence'] += 2
+		if self.i_type == 2:
+			parameter['agility'] += 2
+		if self.i_type == 4:
+			parameter['health'] += 200
+		if self.i_type == 5:
+			parameter['health'] += 400
+		if self.i_type == 15:
+			parameter['health'] *= 2
+		if self.i_type == 16:
+			parameter['0_key'] += 1
+		if self.i_type == 17:
+			parameter['1_key'] += 1
+		if self.i_type == 18:
+			parameter['2_key'] += 1
+		if self.i_type == 19:
+			parameter['0_key'] += 1
+			parameter['1_key'] += 1
+			parameter['2_key'] += 1
+		if self.i_type == 31:
+			parameter['money'] += 300
+		if self.i_type == 36:
+			parameter['level'] += 1
+			parameter['attack'] += 5
+			parameter['defence'] += 3
 
 
 class player(object):
@@ -533,10 +580,10 @@ while True:
 		   produce_number(screen, str(parameter['attack']), -3, 3) + 
 		   produce_number(screen, str(parameter['defence']), -3, 4) + 
 		   produce_number(screen, str(parameter['agility']), -3, 5) +
-		   produce_number(screen, str(parameter['0_key']), -3, 8.5) +
-		   produce_number(screen, str(parameter['1_key']), -3, 9.5) +
-		   produce_number(screen, str(parameter['2_key']), -3, 10.5) +
-		   produce_number(screen, str(parameter['money']), -3, 11.5))
+		   produce_number(screen, str(parameter['0_key']), -3.5, 8.5) +
+		   produce_number(screen, str(parameter['1_key']), -3.5, 9.5) +
+		   produce_number(screen, str(parameter['2_key']), -3.5, 10.5) +
+		   produce_number(screen, str(parameter['money']), -3.5, 11.5))
 
 	update_screen(screen, grounds + information + scenes + [this_floor, warrior] + conversation_control.objects + fight_system.objects)
 	time.sleep(0.075)
