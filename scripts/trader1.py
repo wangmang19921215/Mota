@@ -2,15 +2,9 @@ class NPC():
 	def __init__(self, arg):
 		self.count = 0
 	def trigger(self):
-		if self.count <= 3:
-			self.conversation_control.print_word("商人","又有人來送死了！不知道你能活多久。嘻嘻嘻嘻！", 'npc_2')
-		elif self.count <= 5:
-			self.conversation_control.print_word("商人","不知道你能活多久。嘻嘻嘻嘻！", 'npc_2')
-		else:
-			self.conversation_control.print_word("商人","我先離開了！", 'npc_2')
-			self.status.visible = False
+		key = self.conversation_control.print_word("商人","我有一顆紅寶石，你要嗎？賣你 2 塊錢", 'npc_2', prompt = "（Ｙ／Ｎ）", keys = [ord('y'), ord('n')])
+
+		if key == ord('y') and self.status.cost("money", 2):
+			self.status.cost("attack", -2)
 			self.status.valid = False
-		self.count += 1
-		self.conversation_control.print_word("勇者","這裡怪怪的，恐怕很危險！你怎麼還待在這裡？", 'player')
-		if self.count <= 5:
-			self.conversation_control.print_word("商人","嘻嘻！", 'npc_2')
+			self.status.visible = False

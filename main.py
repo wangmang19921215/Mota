@@ -61,6 +61,9 @@ parameter['0_key']  = 1
 parameter['1_key']  = 1
 parameter['2_key']  = 1
 
+parameter['sword']  = -1
+parameter['shield']  = -1
+
 
 class text_object():
 	def __init__(self, screen, text, location):
@@ -84,7 +87,7 @@ class fight():
 		font = pygame.font.Font("resources/GenRyuMinTW_Regular.ttf", 24)
 		
 		counter = 0
-		while self.in_fighting and ((hp > 0 and parameter['health'] > 0) or counter <= 3):
+		while self.in_fighting and ((hp > 0 and parameter['health'] > 0) or counter <= 2):
 			self.objects = []
 
 			for event in pygame.event.get():
@@ -93,14 +96,14 @@ class fight():
 				if event.type == pygame.KEYDOWN and event.key == ord("q"):
 					self.quit()
 
-			if counter == 3:
+			if counter == 2:
 				if rnd() > (agl - parameter['agility'] / 3)/100:
 					hp -= max(parameter['attack'] - dfs, 0)
 					if rnd() < (parameter['agility'] - agl / 3)/100:
 						hp -= max(parameter['attack'] - dfs, 0)
 					hp = max(hp, 0)
 
-			if counter == 6:
+			if counter == 5:
 				if rnd() > (parameter['agility'] - agl / 3)/100:
 					parameter['health'] -= max(atk - parameter['defence'], 0)
 					if rnd() < (agl - parameter['agility'] / 3)/100:
@@ -124,6 +127,7 @@ class fight():
 			update_screen(self.screen, grounds + information + scenes + [warrior] + this_floor.objects + self.objects)
 			counter += 1
 			time.sleep(0.075)
+
 		self.objects = []
 		if not self.in_fighting:
 			return
@@ -145,11 +149,61 @@ class fight():
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					sys.exit()
+			update_screen(self.screen, grounds + information + scenes + [warrior] + this_floor.objects + self.objects)
+			counter += 1
+			time.sleep(0.075)
 
 
 	def quit(self):
 		self.in_fighting = False
 		self.objects = []
+
+class key_event():
+	def __init__(self, screen):
+		self.screen = screen
+
+	def check_events(self, objs):
+		global warrior
+		for event in pygame.event.get():
+			if event.type == pygame.QUIT:
+				sys.exit()
+			if event.type == pygame.KEYDOWN:
+				if event.key == pygame.K_RIGHT:
+					warrior.vector = [1, 0, 0]
+				elif event.key == pygame.K_LEFT:
+					warrior.vector = [-1,0, 1]
+				if event.key == pygame.K_DOWN:
+					warrior.vector = [0, 1, 2]
+				elif event.key == pygame.K_UP:
+					warrior.vector = [0,-1, 3]
+			elif event.type == pygame.KEYUP:
+				if event.key == pygame.K_RIGHT:
+					warrior.vector = [0, warrior.vector[1], warrior.vector[2]]
+				elif event.key == pygame.K_LEFT:
+					warrior.vector = [0, warrior.vector[1], warrior.vector[2]]
+				if event.key == pygame.K_DOWN:
+					warrior.vector = [warrior.vector[0], 0, warrior.vector[2]]
+				elif event.key == pygame.K_UP:
+					warrior.vector = [warrior.vector[0], 0, warrior.vector[2]]
+		warrior.move(objs)
+
+	def in_conversation(self, keys):
+		global this_floor, grounds, information, scenes,warrior
+		global conversation_control
+		while conversation_control.in_conversation:
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					sys.exit()
+				if event.type == pygame.KEYDOWN:
+					if keys == []:
+						conversation_control.end_conversation()
+						return event.key
+					elif event.key in keys:
+						conversation_control.end_conversation()
+						return event.key
+			update_screen(self.screen, grounds + information + scenes + [warrior] + this_floor.objects + conversation_control.objects)
+			time.sleep(0.075)
+
 
 class conversation():
 	def __init__(self, screen):
@@ -157,7 +211,10 @@ class conversation():
 		self.screen = screen
 		self.objects = []
 		self.queue = []
-	def print_word(self, name, text, path = ""):
+
+	def print_word(self, name, text, path = "",prompt = "", keys = []):
+		global key_system
+
 		if self.in_conversation:
 			self.queue.append((name, text, path))
 			return
@@ -174,9 +231,17 @@ class conversation():
 		self.objects.append(text_object(self.screen, font.render(text , True , (255,255,255)), (1, 10.5)))
 
 		font = pygame.font.Font("resources/GenRyuMinTW_Regular.ttf", 14)
-		self.objects.append(text_object(self.screen, font.render("按任意鍵退出" , True , (255,255,255)), (11, 11.5)))
 
-		time.sleep(0.05)
+		if prompt == "":
+			if keys == []:
+				self.objects.append(text_object(self.screen, font.render("按任意鍵退出" , True , (255,255,255)), (11, 11.5)))
+			else:
+				self.objects.append(text_object(self.screen, font.render("（" + "，".join([str(chr(i)) for i in keys]) + "）" , True , (255,255,255)), (11, 11.5)))
+		else:
+			self.objects.append(text_object(self.screen, font.render(prompt , True , (255,255,255)), (11, 11.5)))
+
+		return key_system.in_conversation(keys)
+
 	def end_conversation(self, key = -1):
 		self.in_conversation = False
 
@@ -287,6 +352,8 @@ class npc(object):
 
 			self.npc_script.trigger(self.npc_script)
 			return False
+	def cost(self, item, amount):
+		return cost(item, amount)
 
 class door(object):
 	def init2(self, parameter):
@@ -417,6 +484,36 @@ class item(object):
 			parameter['level'] += 1
 			parameter['attack'] += 5
 			parameter['defence'] += 3
+		if self.i_type == 48:
+			parameter['attack'] += 10
+			parameter['sword'] = max(48, parameter['sword'])
+		if self.i_type == 49:
+			parameter['attack'] += 28
+			parameter['sword'] = max(49, parameter['sword'])
+		if self.i_type == 50:
+			parameter['attack'] += 40
+			parameter['sword'] = max(50, parameter['sword'])
+		if self.i_type == 51:
+			parameter['attack'] += 65
+			parameter['sword'] = max(51, parameter['sword'])
+		if self.i_type == 52:
+			parameter['attack'] += 80
+			parameter['sword'] = max(52, parameter['sword'])
+		if self.i_type == 56:
+			parameter['defence'] += 12
+			parameter['shield'] = max(56, parameter['shield'])
+		if self.i_type == 57:
+			parameter['defence'] += 30
+			parameter['shield'] = max(57, parameter['shield'])
+		if self.i_type == 58:
+			parameter['defence'] += 42
+			parameter['shield'] = max(58, parameter['shield'])
+		if self.i_type == 59:
+			parameter['defence'] += 68
+			parameter['shield'] = max(59, parameter['shield'])
+		if self.i_type == 60:
+			parameter['defence'] += 85
+			parameter['shield'] = max(60, parameter['shield'])
 		self.valid = False
 		self.visible = False
 		return True
@@ -495,36 +592,6 @@ def produce_number(screen, number,x ,y):
 		c.append(object(screen, "resources/字/%s.png" % j, x + 0.5 * i, y - 0.025, o_type = o_type.scene, multiple = 0.22))
 	return c
 
-def check_events(player, objs, conversation_control, fight_system):
-	for event in pygame.event.get():
-		if event.type == pygame.QUIT:
-			sys.exit()
-		if not conversation_control.in_conversation:
-			if event.type == pygame.KEYDOWN:
-				if event.key == pygame.K_RIGHT:
-					player.vector = [1, 0, 0]
-				elif event.key == pygame.K_LEFT:
-					player.vector = [-1,0, 1]
-				if event.key == pygame.K_DOWN:
-					player.vector = [0, 1, 2]
-				elif event.key == pygame.K_UP:
-					player.vector = [0,-1, 3]
-			elif event.type == pygame.KEYUP:
-				if event.key == pygame.K_RIGHT:
-					player.vector = [0, player.vector[1], player.vector[2]]
-				elif event.key == pygame.K_LEFT:
-					player.vector = [0, player.vector[1], player.vector[2]]
-				if event.key == pygame.K_DOWN:
-					player.vector = [player.vector[0], 0, player.vector[2]]
-				elif event.key == pygame.K_UP:
-					player.vector = [player.vector[0], 0, player.vector[2]]
-		else:
-			if event.type == pygame.KEYDOWN:
-				conversation_control.end_conversation()
-
-
-
-	player.move(objs)
 
 
 def update_screen(screen, objects):
@@ -538,6 +605,7 @@ screen  = pygame.display.set_mode((int(576 * 1.5 + 144), int(480 * 1.5)))
 
 conversation_control = conversation(screen)
 fight_system = fight(screen)
+key_system = key_event(screen)
 
 grounds 	= []
 scenes 		= []
@@ -561,10 +629,10 @@ scenes.append(object(screen, "resources/字/体力.png", -3.5, 2, o_type = o_typ
 scenes.append(object(screen, "resources/字/攻击.png", -3.5, 3, o_type = o_type.scene))
 scenes.append(object(screen, "resources/字/防御.png", -3.5, 4, o_type = o_type.scene))
 scenes.append(object(screen, "resources/字/敏捷.png", -3.5, 5, o_type = o_type.scene))
-scenes.append(object(screen, "resources/道具/16.png", -4.5, 9, o_type = o_type.scene))
-scenes.append(object(screen, "resources/道具/17.png", -4.5, 10, o_type = o_type.scene))
-scenes.append(object(screen, "resources/道具/18.png", -4.5, 11, o_type = o_type.scene))
-scenes.append(object(screen, "resources/道具/31.png", -4.6, 12, o_type = o_type.scene))
+scenes.append(object(screen, "resources/道具/16.png", -4.5, 9.5, o_type = o_type.scene))
+scenes.append(object(screen, "resources/道具/17.png", -4.5, 10.5, o_type = o_type.scene))
+scenes.append(object(screen, "resources/道具/18.png", -4.5, 11.5, o_type = o_type.scene))
+scenes.append(object(screen, "resources/道具/31.png", -4.6, 12.5, o_type = o_type.scene))
 
 
 for i in range(-6,15):
@@ -577,16 +645,22 @@ pygame.display.set_caption("Mota")
 this_floor = floor(screen, "0")
 warrior.location = list(this_floor.down_floor)
 while True:
-	check_events(warrior, scenes + this_floor.objects, conversation_control, fight_system)
+	if not conversation_control.in_conversation:
+		key_system.check_events(scenes + this_floor.objects)
+
 	information = (produce_number(screen, str(parameter['level']), -2.1, 1) + 
 		   produce_number(screen, str(parameter['health']), -3, 2) + 
 		   produce_number(screen, str(parameter['attack']), -3, 3) + 
 		   produce_number(screen, str(parameter['defence']), -3, 4) + 
 		   produce_number(screen, str(parameter['agility']), -3, 5) +
-		   produce_number(screen, str(parameter['0_key']), -3.5, 8.5) +
-		   produce_number(screen, str(parameter['1_key']), -3.5, 9.5) +
-		   produce_number(screen, str(parameter['2_key']), -3.5, 10.5) +
-		   produce_number(screen, str(parameter['money']), -3.5, 11.5))
+		   produce_number(screen, str(parameter['0_key']), -3.5, 9) +
+		   produce_number(screen, str(parameter['1_key']), -3.5, 10) +
+		   produce_number(screen, str(parameter['2_key']), -3.5, 11) +
+		   produce_number(screen, str(parameter['money']), -3.5, 12))
+	if parameter['sword'] != -1:
+		information.append(object(screen, "resources/道具/%s.png" % parameter['sword'], -4.5, 8.25, o_type = o_type.scene))
+	if parameter['shield'] != -1:
+		information.append(object(screen, "resources/道具/%s.png" % parameter['shield'], -2.5, 8.25, o_type = o_type.scene))
 
 	update_screen(screen, grounds + information + scenes + [this_floor, warrior] + conversation_control.objects)
 	time.sleep(0.075)
