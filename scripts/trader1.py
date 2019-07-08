@@ -11,6 +11,6 @@ class NPC():
 			self.status.visible = False
 			self.status.valid = False
 		self.count += 1
-		self.conversation_control.print_word("勇者","這裡怪怪的！", 'player')
+		self.conversation_control.print_word("勇者","這裡怪怪的，恐怕很危險！你怎麼還待在這裡？", 'player')
 		if self.count <= 5:
-			self.conversation_control.print_word("商人","但是有利可圖，嘻嘻！", 'npc_2')
+			self.conversation_control.print_word("商人","因為有利可圖，嘻嘻！", 'npc_2')

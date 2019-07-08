@@ -2,16 +2,8 @@ import sys
 import pygame
 import time
 import json
-
+from random import random as rnd
 from enum import Enum
-
-icons = {
-	"npc_0" : "resources/NPC/仙女 0.png",
-	"npc_1" : "resources/NPC/老人 0.png",
-	"npc_2" : "resources/NPC/商人 0.png",
-	"npc_3" : "resources/NPC/盜賊 0.png",
-	"player": "resources/勇者/down 0.png"
-}
 
 class o_type(Enum):
 	scene 	= -1
@@ -38,6 +30,19 @@ class npc_type(Enum):
 	old_man  = 2
 	thief    = 3
 
+icons = {
+	"npc_0" : "resources/NPC/仙女 0.png",
+	"npc_1" : "resources/NPC/老人 0.png",
+	"npc_2" : "resources/NPC/商人 0.png",
+	"npc_3" : "resources/NPC/盜賊 0.png",
+	"player": "resources/勇者/down 0.png"
+}
+
+monsters = {}
+monster = json.load(open("data/monsters_data.json"))
+for i in monster['monster']:
+	monsters[i['id']] = i
+
 parameter = {"highest_floor": 0, "this_floor": 0}
 
 floors = {}
@@ -53,6 +58,7 @@ parameter['0_key']  = 1
 parameter['1_key']  = 1
 parameter['2_key']  = 1
 
+
 class text_object():
 	def __init__(self, screen, text, location):
 		self.text = text
@@ -60,6 +66,88 @@ class text_object():
 		self.screen = screen
 	def blitme(self):
 		self.screen.blit(self.text, (self.location[0] * 48 + 336, self.location[1] * 48 + 96))
+
+class fight():
+	def __init__(self, screen):
+		self.screen = screen
+		self.objects = []
+		self.in_fighting = False
+
+	def fight_with(self, monster):
+		global this_floor, grounds, information, scenes,warrior
+		self.in_fighting = True
+		path, hp, atk, dfs, agl, name, money = monster.path, monster.health, monster.attack, monster.defence, monster.agility, monster.name, monster.money
+		
+		font = pygame.font.Font("resources/GenRyuMinTW_Regular.ttf", 24)
+		
+		counter = 0
+		while self.in_fighting and ((hp > 0 and parameter['health'] > 0) or counter != 3):
+			self.objects = []
+
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					sys.exit()
+				if event.type == pygame.KEYDOWN and event.key == ord("q"):
+					self.quit()
+
+			if counter == 3:
+				if rnd() > (agl - parameter['agility'] / 3)/100:
+					hp -= max(parameter['attack'] - dfs, 0)
+					if rnd() < (parameter['agility'] - agl / 3)/100:
+						hp -= max(parameter['attack'] - dfs, 0)
+					hp = max(hp, 0)
+
+			if counter == 6:
+				if rnd() > (parameter['agility'] - agl / 3)/100:
+					parameter['health'] -= max(atk - parameter['defence'], 0)
+					if rnd() < (agl - parameter['agility'] / 3)/100:
+						parameter['health'] -= max(atk - parameter['defence'], 0)
+					parameter['health'] = max(parameter['health'], 0)
+				counter = 0
+
+			self.objects.append(object(self.screen, "resources/字/fgt_box.png", 13, 13, o_type = o_type.scene, multiple = 1))
+			self.objects.append(object(self.screen, monster.path , 4, 6, dynamic = True, o_type = o_type.scene, multiple = 3))
+			self.objects.append(object(self.screen, icons['player'], 11, 6, o_type = o_type.scene, multiple = 3))
+			self.objects.append(text_object(self.screen, font.render(str(name) , True , (255,255,255)), (2, 1.3)))
+			self.objects.append(text_object(self.screen, font.render(str("勇者") , True , (255,255,255)), (9.5, 1.3)))
+			self.objects.append(text_object(self.screen, font.render("HP： " + str(hp) , True , (255,255,255)), (2, 4.5)))
+			self.objects.append(text_object(self.screen, font.render("HP： " + str(parameter['health']) , True , (255,255,255)), (9, 4.5)))
+			self.objects.append(text_object(self.screen, font.render("ATK： " + str(atk) , True , (255,255,255)), (2, 5.2)))
+			self.objects.append(text_object(self.screen, font.render("ATK： " + str(parameter['attack']) , True , (255,255,255)), (9, 5.2)))
+			self.objects.append(text_object(self.screen, font.render("DFS： " + str(dfs) , True , (255,255,255)), (2, 5.9)))
+			self.objects.append(text_object(self.screen, font.render("DFS： " + str(parameter['defence']) , True , (255,255,255)), (9, 5.9)))
+
+
+			update_screen(self.screen, grounds + information + scenes + [warrior] + self.objects + this_floor.objects)
+			counter += 1
+			time.sleep(0.075)
+
+		if not self.in_fighting:
+			self.objects = []
+			return
+
+		self.in_fighting = False
+		if hp == 0:
+			parameter['money'] += money
+			monster.valid = False
+			monster.visible = False
+			return
+
+		time.sleep(3)
+
+		self.screen.fill((0,0,0))
+
+		object(self.screen, "resources/字/loss.png", 8, 8, o_type = o_type.scene, multiple = 1).blitme()
+		pygame.display.flip()
+		while True:
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					sys.exit()
+
+
+	def quit(self):
+		self.in_fighting = False
+		self.objects = []
 
 class conversation():
 	def __init__(self, screen):
@@ -86,13 +174,16 @@ class conversation():
 		font = pygame.font.Font("resources/GenRyuMinTW_Regular.ttf", 14)
 		self.objects.append(text_object(self.screen, font.render("按任意鍵退出" , True , (255,255,255)), (11, 11.5)))
 
-	def end_conversation(self):
+		time.sleep(0.05)
+	def end_conversation(self, key = -1):
 		self.in_conversation = False
 
 		if self.queue != []:
 			arg = self.queue[0]
 			del self.queue[0]
 			self.print_word(arg[0], arg[1], arg[2])
+		else:
+			self.objects = []
 
 def cost(item, amount):
 	if parameter[item] >= amount:
@@ -156,6 +247,25 @@ class object():
 				self.screen.blit(self.image, self.rect)
 
 
+class monster(object):
+	def init2(self, arg):
+		global monsters
+		monster_data = monsters[arg["m_type"]]
+		self.name   = monster_data['name']
+		self.health = monster_data["hp"]
+		self.attack = monster_data["atk"]
+		self.defence = monster_data["dfs"]
+		self.agility = monster_data["agility"]
+		self.money = monster_data["money"]
+
+	def trigger(self):
+		global fight_system, warrior
+		warrior.vector = [0, 0, warrior.vector[2]]
+		warrior.counter = 0
+
+		fight_system.fight_with(self)
+
+
 class npc(object):
 	def init2(self, arg):
 		global conversation_control
@@ -169,6 +279,10 @@ class npc(object):
 
 	def trigger(self):
 		if self.npc_script != None:
+			global warrior
+			warrior.vector = [0, 0, warrior.vector[2]]
+			warrior.counter = 0
+
 			self.npc_script.trigger(self.npc_script)
 			return False
 
@@ -216,7 +330,7 @@ class door(object):
 
 class floor():
 	def __init__(self, screen, path):
-		data = json.load(open("floors/" + path + ".json"))
+		data = json.load(open("data/" + path + ".json"))
 
 		self.scene = data["scene"]
 		self.config = data['config']
@@ -250,7 +364,8 @@ class floor():
 
 				elif 62 >= self.scene[i - 1][j - 1] >= 60:
 					self.objects.append(door(screen, "resources/地形/門/%s 0.png" % (["黃","藍","紅"][self.scene[i - 1][j - 1] - 60]), j, i, o_type = o_type.door, arg = {"d_type": self.scene[i - 1][j - 1] - 60}))
-
+				elif self.scene[i - 1][j - 1] >= 2000:
+					self.objects.append(monster(screen, "resources/怪物/" + str(self.scene[i - 1][j - 1] % 1000) + ",%s.png", j, i, dynamic = True, o_type = o_type.monster, arg = {'m_type': self.scene[i - 1][j - 1] % 1000}))
 
 	def blitme(self):
 		for i in self.objects:
@@ -298,10 +413,12 @@ class player(object):
 					return
 				if not i.trigger():
 					return
-				
 
+				
 		self.location[0] += self.vector[0] 
 		self.location[1] +=  self.vector[1] 
+			
+
 
 def jump(screen, destination):
 	global warrior, parameter, this_floor
@@ -316,11 +433,9 @@ def jump(screen, destination):
 		this_floor = floors[destination]
 		if destination < parameter["this_floor"]:
 			warrior.location = this_floor.up_floor
-			print(this_floor.up_floor)
 		else:
 			warrior.location = this_floor.down_floor
-			print(this_floor.down_floor)
-	print(warrior.location)
+
 	warrior.location = list(warrior.location)
 	parameter["this_floor"] = destination
 
@@ -330,7 +445,7 @@ def produce_number(screen, number,x ,y):
 		c.append(object(screen, "resources/字/%s.png" % j, x + 0.5 * i, y - 0.025, o_type = o_type.scene, multiple = 0.22))
 	return c
 
-def check_events(player, objs, conversation_control):
+def check_events(player, objs, conversation_control, fight_system):
 	for event in pygame.event.get():
 		if event.type == pygame.QUIT:
 			sys.exit()
@@ -354,15 +469,15 @@ def check_events(player, objs, conversation_control):
 				elif event.key == pygame.K_UP:
 					player.vector = [player.vector[0], 0, player.vector[2]]
 		else:
-			player.vector = [0, 0, player.vector[2]]
 			if event.type == pygame.KEYDOWN:
 				conversation_control.end_conversation()
+
+
 
 	player.move(objs)
 
 
 def update_screen(screen, objects):
-	screen.fill((30,30,30))
 	for i in objects:
 		i.blitme()
 	pygame.display.flip()
@@ -372,6 +487,7 @@ pygame.init()
 screen  = pygame.display.set_mode((int(576 * 1.5 + 144), int(480 * 1.5)))
 
 conversation_control = conversation(screen)
+fight_system = fight(screen)
 
 grounds 	= []
 scenes 		= []
@@ -411,7 +527,7 @@ pygame.display.set_caption("Mota")
 this_floor = floor(screen, "0")
 warrior.location = list(this_floor.down_floor)
 while True:
-	check_events(warrior, scenes + this_floor.objects, conversation_control)
+	check_events(warrior, scenes + this_floor.objects, conversation_control, fight_system)
 	information = (produce_number(screen, str(parameter['level']), -2.1, 1) + 
 		   produce_number(screen, str(parameter['health']), -3, 2) + 
 		   produce_number(screen, str(parameter['attack']), -3, 3) + 
@@ -422,5 +538,5 @@ while True:
 		   produce_number(screen, str(parameter['2_key']), -3, 10.5) +
 		   produce_number(screen, str(parameter['money']), -3, 11.5))
 
-	update_screen(screen, grounds + information + scenes + [this_floor, warrior] + (conversation_control.objects if conversation_control.in_conversation else []))
-	time.sleep(0.085)
+	update_screen(screen, grounds + information + scenes + [this_floor, warrior] + conversation_control.objects + fight_system.objects)
+	time.sleep(0.075)
