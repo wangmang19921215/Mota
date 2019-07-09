@@ -56,7 +56,7 @@ floors = {}
 for i in monster['monster']:
 	monsters[i['id']] = i
 
-parameter = {'highest_floor': 0,'this_floor': 0}
+parameter = {'highest_floor': 0,'this_floor': 0, 'lower_floor': 0}
 
 parameter['level'] 		= 1
 parameter['health'] 	= 1000
@@ -81,6 +81,41 @@ class text_object():
 		self.screen = screen
 	def blitme(self):
 		self.screen.blit(self.text, (self.location[0] * 48 + 336, self.location[1] * 48 + 96))
+
+class tools():
+	def __init__(self, screen):
+		self.screen = screen
+
+	def fly(self):
+		global this_floor, parameter
+
+		objects = []
+		objects.append(object(self.screen, "resources/字/fgt_box.png", 13, 13, o_type = o_type.scene, multiple = 1))
+
+		now = this_floor.this_floor
+
+		while True:
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					sys.exit()
+				if event.type == pygame.KEYDOWN:
+					if event.key == pygame.K_KP_ENTER:
+						jump(self.screen, now)
+						break
+					elif event.key == pygame.K_UP:
+						if now < parameter['highest_floor']:
+							now += 1
+					elif event.key == pygame.K_DOWN:
+						if now > parameter['lower_floor']:
+							now -= 1
+
+					
+
+				update_screen(screen, grounds + information + scenes + [this_floor, warrior] + conversation_control.objects)
+				time.sleep(0.075)
+
+	def illustration(self):
+		pass
 
 class fight():
 	def __init__(self, screen):
@@ -329,7 +364,7 @@ def cost(item, amount):
 	play_audio("error")
 	return False
 
-class object():
+class object(): 
 	def __init__(self, screen, path, x , y,dynamic = False, o_type = o_type.ground, multiple = 1.5, arg = {}, script = None, floor = None):
 		self.screen = screen
 
@@ -690,12 +725,17 @@ class player(object):
 def jump(screen, destination):
 	global warrior, parameter, this_floor
 	warrior.vector = [0, 0, warrior.vector[2]]
-	
+
 	if destination > parameter['highest_floor']:
 		parameter['highest_floor'] = destination
 		floors[parameter["this_floor"]] = this_floor
 		this_floor = floors[destination]
 		warrior.location = this_floor.down_floor
+	elif destination < parameter['lower_floor']:
+		parameter['lower_floor'] = destination
+		floors[parameter["this_floor"]] = this_floor
+		this_floor = floors[destination]
+		warrior.location = this_floor.up_floor
 	else:
 		floors[parameter["this_floor"]] = this_floor
 		this_floor = floors[destination]
@@ -738,10 +778,6 @@ conversation_control = conversation(screen)
 fight_system = fight(screen)
 key_system = key_event(screen)
 
-
-for i in json.load(open("data/floors_data.json"))['floors']:
-	floors[i['floor']] = floor(screen, i)
-
 grounds 	= []
 scenes 		= []
 
@@ -777,8 +813,17 @@ for i in range(-6,15):
 warrior = player(screen)
 pygame.display.set_caption("Mota")
 
-this_floor = floors[0]
-warrior.location = list(this_floor.down_floor)
+f = json.load(open("data/floors_data.json"))
+
+for i in f['floors']:
+	floors[i['floor']] = floor(screen, i)
+
+this_floor = floors[f["start"]]
+
+warrior.location = list(f['location'])
+
+del f
+
 while True:
 	if not conversation_control.in_conversation:
 		key_system.check_events(scenes + this_floor.objects)
