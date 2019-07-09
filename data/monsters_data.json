@@ -19,14 +19,14 @@
 			"name": "紅色史萊姆",
 			"path": "9",
 			"hp"  :	120,
-			"atk" : 15,
-			"dfs" : 6,
+			"atk" : 35,
+			"dfs" : 0,
 			"dex" : 1,
 			"agility": 1,
 			"money": 1,
-			"atk_type": 2,
+			"atk_type": 4,
 			"sound": "hit",
-			"img": "poisonous"
+			"img": "hit"
 		}
 	]
 }

@@ -51,16 +51,16 @@ icons = {
 
 monsters = {}
 monster = json.load(open("data/monsters_data.json"))
+floors = {}
+
 for i in monster['monster']:
 	monsters[i['id']] = i
 
-parameter = {"highest_floor": 0, "this_floor": 0}
-
-floors = {}
+parameter = {'highest_floor': 0,'this_floor': 0}
 
 parameter['level'] 		= 1
 parameter['health'] 	= 1000
-parameter['attack'] 	= 10
+parameter['attack'] 	= 90
 parameter['defence'] 	= 10
 parameter['agility'] 	= 1
 parameter['money'] 		= 0
@@ -69,7 +69,7 @@ parameter['0_key']  = 1
 parameter['1_key']  = 1
 parameter['2_key']  = 1
 
-parameter['sword']  = 49
+parameter['sword']  = 52
 parameter['shield']  = -1
 
 parameter['is_poisoning'] = False
@@ -105,7 +105,7 @@ class fight():
 
 		j = i
 
-		counter = 0
+		counter = 3
 		this_scenes = []
 		this_scenes.append(object(self.screen, "resources/字/fgt_box.png", 13, 13, o_type = o_type.scene, multiple = 1))
 		this_scenes.append(text_object(self.screen, font.render(str(name) , True , (255,255,255)), (2, 1.3)))
@@ -319,13 +319,21 @@ class conversation():
 def cost(item, amount):
 	if parameter[item] >= amount:
 		parameter[item] -= amount
+		if item == "money":
+			play_audio("gold")
+		else:
+			if amount > 0: 
+				play_audio("yes")
 		return True
+	print("error")
+	play_audio("error")
 	return False
 
 class object():
-	def __init__(self, screen, path, x , y,dynamic = False, o_type = o_type.ground, multiple = 1.5, arg = {}, npc_script = None):
+	def __init__(self, screen, path, x , y,dynamic = False, o_type = o_type.ground, multiple = 1.5, arg = {}, script = None, floor = None):
 		self.screen = screen
 
+		self.floor = floor
 		if path != "":
 			self.visible = True
 			self.valid   = True
@@ -349,7 +357,7 @@ class object():
 
 		self.location = [x,y]
 
-		self.npc_script = npc_script
+		self.script = script
 
 		self.init2(arg)
 
@@ -374,7 +382,6 @@ class object():
 				if self.counter == 4:
 					self.counter = 0
 			else:
-
 				self.screen.blit(self.image, self.rect)
 
 class effect(object):
@@ -400,6 +407,10 @@ class monster(object):
 		global monsters
 		self.property = monsters[arg["m_type"]]
 
+		if self.script != None:
+			self.script.status = self
+			self.script.__init__(self.script, arg)
+
 	def trigger(self):
 		global fight_system, warrior
 		warrior.vector = [0, 0, warrior.vector[2]]
@@ -407,25 +418,28 @@ class monster(object):
 
 		fight_system.fight_with(self)
 
+		if self.script != None:
+			self.script.trigger(self.script)
+
 
 class npc(object):
 	def init2(self, arg):
 		global conversation_control
 
-		self.npc_script.conversation_control = conversation_control
+		self.script.conversation_control = conversation_control
 
 		self.name = arg["name"]
-		if self.npc_script != None:
-			self.npc_script.status = self
-			self.npc_script.__init__(self.npc_script, arg)
+		if self.script != None:
+			self.script.status = self
+			self.script.__init__(self.script, arg)
 
 	def trigger(self):
-		if self.npc_script != None:
+		if self.script != None:
 			global warrior
 			warrior.vector = [0, 0, warrior.vector[2]]
 			warrior.counter = 0
 
-			self.npc_script.trigger(self.npc_script)
+			self.script.trigger(self.script)
 			return False
 	def cost(self, item, amount):
 		return cost(item, amount)
@@ -435,21 +449,24 @@ class door(object):
 		self.d_type = parameter['d_type']
 		self.parameter = parameter
 		self.is_open = False
+		self.count   = 0
 	def trigger(self):
 		if not self.is_open:
 			if not self.d_type == 3:
 				if cost(str(self.d_type) + "_key", 1):
 					self.is_open = True
-					self.count   = 0
 					play_audio("open_door")
-					return False
+				return False
 			else:
-				return magic_door()
+				if self.script!=None:
+					if self.script.trigger():
+						self.is_open = True
+						play_audio("open_door")
+					return False
+				else:
+					return False
 		else:
 			return not self.visible
-
-	def magic_door():
-		pass
 
 	def blitme(self):
 		if self.visible and not self.is_open:
@@ -474,15 +491,15 @@ class door(object):
 			self.screen.blit(self.image, self.rect)
 
 class floor():
-	def __init__(self, screen, path):
-		data = json.load(open("data/" + path + ".json"))
-
+	def __init__(self, screen, data):
 		self.scene = data["scene"]
 		self.config = data['config']
 		self.this_floor = data['floor']
 		self.objects 	= []
 		self.up_floor   = (0, 0)
 		self.down_floor = (0, 0)
+
+		self.tags = {}
 
 		for i in range(1,14):
 			for j in range(1,14):
@@ -505,12 +522,32 @@ class floor():
 					if not data['config']['next_floor'] == None:
 						self.objects.append(object(screen, "resources/地形/up_floor.png", j, i, o_type = o_type.up_floor))
 
-				elif type(self.scene[i - 1][j - 1]) == dict:
+				elif type(self.scene[i - 1][j - 1]) == dict and self.scene[i - 1][j - 1]['o_type'] == o_type.npc.value:
 					module = __import__("scripts." + self.scene[i - 1][j - 1]['program'])
 					exec("global NPC; NPC = module." + self.scene[i - 1][j - 1]['program'] + ".NPC")
 					path = "resources/NPC/" + ["仙女", "老人", "商人", "盜賊"][self.scene[i - 1][j - 1]["npc_type"]] + " %s.png"
 
-					self.objects.append(npc(screen, path , j, i,dynamic = True, o_type = o_type.npc, arg = self.scene[i - 1][j - 1], npc_script = NPC))
+					self.objects.append(npc(screen, path , j, i, dynamic = True, o_type = o_type.npc, arg = self.scene[i - 1][j - 1], script = NPC))
+
+				elif type(self.scene[i - 1][j - 1]) == dict and self.scene[i - 1][j - 1]['o_type'] == o_type.monster.value:
+					module = __import__("scripts." + self.scene[i - 1][j - 1]['program'])
+					exec("global MST; MST = module." + self.scene[i - 1][j - 1]['program'] + ".monster;")
+					path = "resources/怪物/" + str(self.scene[i - 1][j - 1]["m_type"] - 2000) + ",%s.png"
+
+					self.objects.append(monster(screen, path , j, i, dynamic = True, o_type = o_type.monster, arg = {"m_type": self.scene[i - 1][j - 1]["m_type"] - 2000}, script = MST))
+
+				elif type(self.scene[i - 1][j - 1]) == dict and self.scene[i - 1][j - 1]['o_type'] == o_type.door.value:
+					if 'program' in self.scene[i - 1][j - 1]:
+						module = __import__("scripts." + self.scene[i - 1][j - 1]['program'])
+						exec("global DR; DR = module." + self.scene[i - 1][j - 1]['program'] + ".monster")
+					else:
+						DR = None
+					path = "resources/地形/門/" + ["黃","藍","紅","魔法"][self.scene[i - 1][j - 1]["d_type"]] + " 0.png"
+
+					self.objects.append(door(screen, path , j, i, o_type = o_type.door, arg = self.scene[i - 1][j - 1] , script = DR))
+
+					if 'tag' in self.scene[i - 1][j - 1]:
+						self.tags[self.scene[i - 1][j - 1]['tag']] = self.objects[-1]
 
 				elif 62 >= self.scene[i - 1][j - 1] >= 60:
 					self.objects.append(door(screen, "resources/地形/門/%s 0.png" % (["黃","藍","紅"][self.scene[i - 1][j - 1] - 60]), j, i, o_type = o_type.door, arg = {"d_type": self.scene[i - 1][j - 1] - 60}))
@@ -519,10 +556,12 @@ class floor():
 					self.objects.append(object(screen, "resources/地形/" + (["lava","star"][self.scene[i - 1][j - 1] - 70]) + " %s.png", j, i, dynamic = True, o_type = o_type.wall))
 				
 				elif 900 > self.scene[i - 1][j - 1] >= 800:
-					self.objects.append(item(screen, "resources/道具/%s.png" % str(self.scene[i - 1][j - 1] - 800), j, i, o_type = o_type.item, arg = {'i_type': self.scene[i - 1][j - 1] - 800}))
+					self.objects.append(item(screen, "resources/道具/%s.pdng" % str(self.scene[i - 1][j - 1] - 800), j, i, o_type = o_type.item, arg = {'i_type': self.scene[i - 1][j - 1] - 800}))
 				elif self.scene[i - 1][j - 1] >= 2000:
 					self.objects.append(monster(screen, "resources/怪物/" + str(self.scene[i - 1][j - 1] % 1000) + ",%s.png", j, i, dynamic = True, o_type = o_type.monster, arg = {'m_type': self.scene[i - 1][j - 1] % 1000}))
 
+				self.objects[-1].floor = self
+				
 	def blitme(self):
 		for i in self.objects:
 			i.blitme()
@@ -651,10 +690,11 @@ class player(object):
 def jump(screen, destination):
 	global warrior, parameter, this_floor
 	warrior.vector = [0, 0, warrior.vector[2]]
+	
 	if destination > parameter['highest_floor']:
 		parameter['highest_floor'] = destination
 		floors[parameter["this_floor"]] = this_floor
-		this_floor = floor(screen, str(destination))
+		this_floor = floors[destination]
 		warrior.location = this_floor.down_floor
 	else:
 		floors[parameter["this_floor"]] = this_floor
@@ -689,6 +729,7 @@ def update_screen(screen, objects):
 	pygame.display.flip()
 
 
+
 pygame.init()
 
 screen  = pygame.display.set_mode((int(576 * 1.5 + 144), int(480 * 1.5)))
@@ -696,6 +737,10 @@ screen  = pygame.display.set_mode((int(576 * 1.5 + 144), int(480 * 1.5)))
 conversation_control = conversation(screen)
 fight_system = fight(screen)
 key_system = key_event(screen)
+
+
+for i in json.load(open("data/floors_data.json"))['floors']:
+	floors[i['floor']] = floor(screen, i)
 
 grounds 	= []
 scenes 		= []
@@ -732,7 +777,7 @@ for i in range(-6,15):
 warrior = player(screen)
 pygame.display.set_caption("Mota")
 
-this_floor = floor(screen, "0")
+this_floor = floors[0]
 warrior.location = list(this_floor.down_floor)
 while True:
 	if not conversation_control.in_conversation:
@@ -747,6 +792,8 @@ while True:
 		   produce_number(screen, str(parameter['1_key']), -3.5, 10) +
 		   produce_number(screen, str(parameter['2_key']), -3.5, 11) +
 		   produce_number(screen, str(parameter['money']), -3.5, 12))
+	if parameter['is_poisoning']:
+		information.append(text_object(screen, pygame.font.Font("resources/GenRyuMinTW_Regular.ttf", 24).render(str("（中毒）") , True , (0,255,0)), (-4.1, -0.8)))
 	if parameter['sword'] != -1:
 		information.append(object(screen, "resources/道具/%s.png" % parameter['sword'], -4.5, 8.25, o_type = o_type.scene))
 	if parameter['shield'] != -1:
